@@ -1,9 +1,0 @@
-# Force YAML files to be included in language stats
-*.yml  linguist-detectable
-*.yml  linguist-language=YAML
-*.yaml linguist-detectable
-*.yaml linguist-language=YAML
-
-# Force Jenkinsfile to count as Groovy
-Jenkinsfile linguist-detectable
-Jenkinsfile linguist-language=Groovy
