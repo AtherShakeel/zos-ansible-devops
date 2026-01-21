@@ -1,0 +1,54 @@
+# playbooks/mainframe_devops_template.yml
+- name: Mainframe DevOps Automation Template
+  hosts: localhost
+  gather_facts: no
+  vars:
+    zosmf_host: 204.90.115.200
+    zosmf_port: 10443
+    zosmf_user: "{{ lookup('env','ZOSMF_USER') }}"
+    zosmf_password: "{{ lookup('env','ZOSMF_PASS') }}"
+
+  tasks:
+
+    - name: Authenticate with z/OSMF
+      ibm.ibm_zosmf.zmf_authenticate:
+        zmf_host: "{{ zosmf_host }}"
+        zmf_port: "{{ zosmf_port }}"
+        zmf_user: "{{ zosmf_user }}"
+        zmf_password: "{{ zosmf_password }}"
+      register: auth_result
+
+    - name: Show authentication result
+      debug:
+        var: auth_result
+
+    - name: List workflows (safe example)
+      ibm.ibm_zosmf.zmf_workflow:
+        zmf_host: "{{ zosmf_host }}"
+        zmf_port: "{{ zosmf_port }}"
+        zmf_user: "{{ zosmf_user }}"
+        zmf_password: "{{ zosmf_password }}"
+        workflow_name: "YOUR_WORKFLOW_NAME"  # Replace with a valid workflow if needed
+        state: existed
+      register: workflow_result
+      ignore_errors: yes  # Prevents failure if workflow does not exist
+
+    - name: Show workflow result
+      debug:
+        var: workflow_result
+
+    # Optional: Safe SCA listing template
+    - name: List SCA packages (safe)
+      ibm.ibm_zosmf.zmf_sca:
+        zmf_host: "{{ zosmf_host }}"
+        zmf_port: "{{ zosmf_port }}"
+        zmf_user: "{{ zosmf_user }}"
+        zmf_password: "{{ zosmf_password }}"
+        state: check
+        path_of_security_requirements: "/path/to/security/requirements"  # Replace with valid path
+      register: sca_result
+      ignore_errors: yes
+
+    - name: Show SCA packages result
+      debug:
+        var: sca_result

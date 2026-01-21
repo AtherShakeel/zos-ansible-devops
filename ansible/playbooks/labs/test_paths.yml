@@ -1,0 +1,21 @@
+---
+- name: Understand Ansible path variables
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Show important path variables
+      debug:
+        msg:
+          - "playbook_dir      = {{ playbook_dir }}"
+          - "inventory_dir     = {{ inventory_dir | default('N/A') }}"
+          - "pwd (lookup)      = {{ lookup('env','PWD') }}"
+          - "user home         = {{ lookup('env','HOME') }}"
+          - "repo_root guess   = {{ playbook_dir }}/../../.."
+
+    - name: List what Ansible sees in repo_root
+      command: ls -1 "{{ playbook_dir }}/../.."
+      register: root_list
+
+    - debug:
+        var: root_list.stdout_lines

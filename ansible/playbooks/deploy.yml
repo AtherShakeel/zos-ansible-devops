@@ -1,0 +1,41 @@
+---
+- name: Deploy ZOS-Ansible-Devops end-to-end using zos_core over SSH (roles + clean output + spool artifacts)
+  hosts: zos_ssh
+  gather_facts: false
+  environment: "{{ zoau_env }}"
+  collections:
+    - ibm.ibm_zos_core
+
+  vars:
+    # Keep your style (string path). This is what you already use.
+    repo_root: "{{ playbook_dir }}/../.."
+
+    artifacts_dir: "{{ repo_root }}/artifacts"
+    max_ok_rc: 4
+    force_prime: false
+
+  pre_tasks:
+    - name: Ensure artifacts directory exists on controller
+      ansible.builtin.file:
+        path: "{{ artifacts_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+  roles:
+    - datasets
+    - deploy_sources
+    - run_jobs
+    - spool_artifacts
+
+  post_tasks:
+    # Fail AFTER spool is saved (same behavior as your step 6)
+    - name: Fail if any job RC > {{ max_ok_rc }}
+      ansible.builtin.fail:
+        msg: >-
+          FAIL: {{ item.item }} => {{ item.jobs[0].job_name }} {{ item.jobs[0].job_id }}
+          RC={{ item.jobs[0].ret_code.code }} (spool saved under artifacts/)
+      when: item.jobs[0].ret_code.code | int > max_ok_rc
+      loop: "{{ job_runs.results }}"
+      loop_control:
+        label: "{{ item.item }}"

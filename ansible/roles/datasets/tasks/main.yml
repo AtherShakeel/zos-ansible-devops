@@ -1,0 +1,65 @@
+---
+#  Section 1 + 2 from original deploy.yml
+
+# 1) Ensure datasets exist (idempotent)
+- name: Ensure application datasets exist
+  ibm.ibm_zos_core.zos_data_set:
+    name: "{{ item.name }}"
+    type: "{{ item.type }}"
+    state: present
+
+    # Non-VSAM (PS/PDS/PDSE)
+    record_format: "{{ item.recfm | default(omit) if item.type not in ['ksds','esds','rrds','lds'] else omit }}"
+    record_length: "{{ item.lrecl | default(omit) if item.type not in ['ksds','esds','rrds','lds'] else omit }}"
+
+    # VSAM (KSDS/ESDS/RRDS/LDS)
+    key_length: "{{ item.key_length | default(omit) if item.type in ['ksds','rrds'] else omit }}"
+    key_offset: "{{ item.key_offset | default(omit) if item.type in ['ksds','rrds'] else omit }}"
+    block_size: "{{ item.blksize | default(omit) if item.type in ['ksds','esds','rrds','lds'] else omit }}"
+    volumes: "{{ [item.vol] if (item.vol is defined and item.type in ['ksds','esds','rrds','lds']) else omit }}"
+
+    space_type: trk
+    space_primary: "{{ item.pri | default(5) }}"
+    space_secondary: "{{ item.sec | default(2) }}"
+
+    # Only for PDS/PDSE
+    directory_blocks: "{{ item.dir | default(omit) if item.type in ['pds','pdse'] else omit }}"
+  loop:
+    - { name: "{{ datasets.source }}",  type: pds,  recfm: fb, lrecl: 80, dir: 20 }
+    - { name: "{{ datasets.subsrc }}",  type: pds,  recfm: fb, lrecl: 80, dir: 20 }
+    - { name: "{{ datasets.copylib }}", type: pds,  recfm: fb, lrecl: 80, dir: 20 }
+    - { name: "{{ datasets.objlib }}",  type: pds,  recfm: u,  dir: 20 }
+    - { name: "{{ datasets.loadlib }}", type: pdse, recfm: u,  dir: 20 }
+    - { name: "{{ datasets.trans }}",   type: seq,  recfm: fb, lrecl: 80, pri: 5 }
+    - { name: "{{ datasets.master }}",  type: ksds, key_length: 10, key_offset: 0, blksize: 80 }
+  register: ds_create
+
+# 2) Prime VSAM MASTER only when just created (or force_prime)
+- name: Capture MASTER dataset result object
+  ansible.builtin.set_fact:
+    master_result: >-
+      {{
+        (ds_create.results
+        | selectattr('item.name', 'equalto', datasets.master)
+        | list
+        | first)
+        | default({})
+      }}
+
+- name: Determine if VSAM MASTER was created/changed
+  ansible.builtin.set_fact:
+    master_changed: "{{ master_result.changed | default(false) | bool }}"
+
+- name: Debug master_changed
+  ansible.builtin.debug:
+    msg: "master_changed={{ master_changed }} | master_result.changed={{ master_result.changed | default('MISSING') }}"
+
+- name: Prime VSAM MASTER only on first creation
+  ibm.ibm_zos_core.zos_job_submit:
+    src: "{{ repo_root }}/jcl/setup_env.jcl"
+    location: local
+    wait_time_s: 300
+    return_output: false
+  register: vsam_setup_job
+  when: master_changed or (force_prime | default(false) | bool)
+

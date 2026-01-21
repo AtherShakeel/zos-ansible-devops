@@ -1,0 +1,28 @@
+- name: Test SSH connection to USS (no python needed)
+  hosts: zos_ssh
+  gather_facts: no
+
+  tasks:
+    - name: Who am I (USS)
+      raw: whoami
+      register: who
+
+    - name: Show output
+      debug:
+        var: who.stdout
+
+    - name: Show OS (USS)
+      raw: uname -a
+      register: osout
+
+    - name: Display OS output
+      debug:
+        var: osout.stdout
+
+    - name: List home directory (USS)
+      raw: "ls -l $HOME"
+      register: lsout
+
+    - name: Display directory listing
+      debug:
+        var: lsout.stdout

@@ -1,0 +1,36 @@
+---
+# Section 4 of original deploy.yml (role version)
+
+- name: Submit JCL chain and wait
+  ibm.ibm_zos_core.zos_job_submit:
+    src: "{{ repo_root }}/jcl/{{ item }}"
+    location: local
+    wait_time_s: 300
+    return_output: false
+  loop: "{{ jcl_chain }}"
+  loop_control:
+    label: "{{ item }}"
+  register: job_runs
+  # Default: keep logs clean
+  # Debug run: show details (-e debug=true)
+  no_log: "{{ (debug | default(false) | bool) | ternary(false, true) }}"
+  # Optional: don't stop immediately so spools can still be captured later
+  # If you want the play to stop immediately on submit failure, remove ignore_errors.
+  ignore_errors: true
+
+- name: Show job summaries (even if some submits failed)
+  ansible.builtin.debug:
+    msg: >-
+      JCL={{ item.item | default('UNKNOWN') }}
+      | JOB={{ (item.jobs[0].job_name if (item.jobs|default([])|length>0) else 'UNKNOWN') }}
+        {{ (item.jobs[0].job_id   if (item.jobs|default([])|length>0) else '') }}
+      | RC={{ (item.jobs[0].ret_code.code if (item.jobs|default([])|length>0 and item.jobs[0].ret_code is defined) else 'NA') }}
+      | SUBMIT_FAILED={{ item.failed | default(false) }}
+  loop: "{{ job_runs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('UNKNOWN') }}"
+
+- name: Inspect first job result structure
+  ansible.builtin.debug:
+    var: job_runs.results[0]
+  when: debug | default(false) | bool

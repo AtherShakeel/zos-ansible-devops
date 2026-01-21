@@ -1,0 +1,23 @@
+---
+- name: Submit one JCL (with ZOAU env)
+  hosts: zos_ssh
+  gather_facts: false
+  collections:
+    - ibm.ibm_zos_core
+  environment: "{{ zoau_env }}"
+
+  vars:
+    jcl_path: "../../../jcl/extras/print_vsam.jcl"
+
+  tasks:
+    - name: Submit JCL
+      zos_job_submit:
+        src: "{{ jcl_path }}"
+        location: local
+        wait_time_s: 300
+        return_output: true
+      register: r
+
+    - debug:
+        msg: "JOB={{ r.jobs[0].job_name }} {{ r.jobs[0].job_id }} RC={{ r.jobs[0].ret_code.code}} OP={{ r.jobs[0].ddnames}}"
+      

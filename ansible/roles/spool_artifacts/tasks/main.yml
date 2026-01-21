@@ -1,0 +1,10 @@
+---
+# Section 5 of original deploy.yml
+
+- name: Fetch spool and save locally for each job
+  ansible.builtin.include_tasks: save_spool.yml
+  loop: "{{ job_runs.results }}"
+  loop_control:
+    label: "{{ item.jobs[0].job_name }} {{ item.jobs[0].job_id }} ({{ item.item }})"
+  vars:
+    job_item: "{{ item }}"

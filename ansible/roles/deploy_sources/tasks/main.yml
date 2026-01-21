@@ -1,0 +1,30 @@
+---
+# Section 3 of original deploy.yml
+
+- name: Upload copybooks -> COPYLIB
+  ibm.ibm_zos_core.zos_copy:
+    src: "{{ repo_root }}/copy/"
+    dest: "{{ datasets.copylib }}"
+    remote_src: false
+    force: true
+
+- name: Upload subprograms -> SUBSRC
+  ibm.ibm_zos_core.zos_copy:
+    src: "{{ repo_root }}/subprogs/"
+    dest: "{{ datasets.subsrc }}"
+    remote_src: false
+    force: true
+
+- name: Upload COBOL -> SOURCE
+  ibm.ibm_zos_core.zos_copy:
+    src: "{{ repo_root }}/cobol/"
+    dest: "{{ datasets.source }}"
+    remote_src: false
+    force: true
+
+- name: Upload transactions -> TRANS (overwrite PS)
+  ibm.ibm_zos_core.zos_copy:
+    src: "{{ repo_root }}/data/transactions.txt"
+    dest: "{{ datasets.trans }}"
+    remote_src: false
+    force: true

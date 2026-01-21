@@ -1,0 +1,22 @@
+---
+- name: Probe ZOAU + zoautil_py in non-interactive Ansible session
+  hosts: zos_ssh
+  gather_facts: false
+
+  tasks:
+    - name: Show python used by Ansible
+      command: "{{ ansible_python_interpreter }} -c \"import sys; print(sys.executable)\""
+      register: pyexe
+      changed_when: false
+
+    - debug:
+        var: pyexe.stdout
+
+    - name: Try importing zoautil_py
+      command: "{{ ansible_python_interpreter }} -c \"import zoautil_py; print('zoautil_py OK')\""
+      environment: "{{ zoau_env }}"
+      register: zpy
+      changed_when: false
+
+    - debug:
+        var: zpy.stdout

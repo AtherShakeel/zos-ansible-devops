@@ -1,0 +1,8 @@
+zosmf_host: 204.90.115.200
+zosmf_port: 10443
+zosmf_protocol: https
+zosmf_reject_unauthorized: false
+zosmf_base_path: /zosmf
+
+zosmf_user: "{{ lookup('env','ZOSMF_USER') }}"
+zosmf_pass: "{{ lookup('env','ZOSMF_PASS') }}"

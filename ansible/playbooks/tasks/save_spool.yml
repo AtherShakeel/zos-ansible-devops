@@ -1,0 +1,219 @@
+---
+# Expects: job_item, artifacts_dir
+# Purpose: Fetch JESMSGLG / JESJCL / JESYSMSG for ONE job and save to controller
+# Extra (requested):
+#   - For PRNTVASM: also capture SYSPRINT (IDCAMS PRINT output)
+#   - For RUNORCH : also capture SYSOUT (program output)
+#   - If preferred DD isn't available, try the fallback (SYSPRINT <-> SYSOUT)
+
+- name: Set job identity facts (safe defaults)
+  ansible.builtin.set_fact:
+    _job_id: "{{ job_item.jobs[0].job_id }}"
+    _job_name: "{{ job_item.jobs[0].job_name | default('UNKNOWN') }}"
+    _jcl_file: "{{ job_item.item }}"
+    _rc: "{{ job_item.jobs[0].ret_code.code | default('NA') }}"
+
+# ---------------------------
+# JESMSGLG
+# ---------------------------
+- name: "Get JESMSGLG ({{ _job_name }} {{ _job_id }})"
+  zos_job_output:
+    job_id: "{{ _job_id }}"
+    ddname: "JESMSGLG"
+  register: msglg
+  retries: 10
+  delay: 3
+  until:
+    - msglg is succeeded
+    - (msglg.jobs | default([]) | length) > 0
+    - (msglg.jobs[0].ddnames | default([]) | length) > 0
+  ignore_errors: true
+
+- name: Normalize JESMSGLG text
+  ansible.builtin.set_fact:
+    msglg_text: >-
+      {% set m = (msglg | default({})) %}
+      {% set jobs = (m.jobs | default([])) %}
+      {% set ddnames = (jobs[0].ddnames if (jobs|length>0) else []) | default([]) %}
+      {% set dd = (ddnames[0] if (ddnames|length>0) else {}) %}
+      {% if dd == {} %}
+      [Spool fetch failed or DD not available: JESMSGLG for {{ _job_name }} {{ _job_id }}]
+      {% elif dd.content is string %}
+      {{ dd.content }}
+      {% elif dd.content is sequence %}
+      {{ dd.content | join('\n') }}
+      {% else %}
+      {{ (dd.records | default([])) | join('\n') }}
+      {% endif %}
+
+# ---------------------------
+# JESJCL
+# ---------------------------
+- name: "Get JESJCL ({{ _job_name }} {{ _job_id }})"
+  zos_job_output:
+    job_id: "{{ _job_id }}"
+    ddname: "JESJCL"
+  register: jesjcl
+  retries: 10
+  delay: 3
+  until:
+    - jesjcl is succeeded
+    - (jesjcl.jobs | default([]) | length) > 0
+    - (jesjcl.jobs[0].ddnames | default([]) | length) > 0
+  ignore_errors: true
+
+- name: Normalize JESJCL text
+  ansible.builtin.set_fact:
+    jesjcl_text: >-
+      {% set j = (jesjcl | default({})) %}
+      {% set jobs = (j.jobs | default([])) %}
+      {% set ddnames = (jobs[0].ddnames if (jobs|length>0) else []) | default([]) %}
+      {% set dd = (ddnames[0] if (ddnames|length>0) else {}) %}
+      {% if dd == {} %}
+      [Spool fetch failed or DD not available: JESJCL for {{ _job_name }} {{ _job_id }}]
+      {% elif dd.content is string %}
+      {{ dd.content }}
+      {% elif dd.content is sequence %}
+      {{ dd.content | join('\n') }}
+      {% else %}
+      {{ (dd.records | default([])) | join('\n') }}
+      {% endif %}
+
+# ---------------------------
+# JESYSMSG
+# ---------------------------
+- name: "Get JESYSMSG ({{ _job_name }} {{ _job_id }})"
+  zos_job_output:
+    job_id: "{{ _job_id }}"
+    ddname: "JESYSMSG"
+  register: jesysmsg
+  retries: 10
+  delay: 3
+  until:
+    - jesysmsg is succeeded
+    - (jesysmsg.jobs | default([]) | length) > 0
+    - (jesysmsg.jobs[0].ddnames | default([]) | length) > 0
+  ignore_errors: true
+
+- name: Normalize JESYSMSG text
+  ansible.builtin.set_fact:
+    jesysmsg_text: >-
+      {% set y = (jesysmsg | default({})) %}
+      {% set jobs = (y.jobs | default([])) %}
+      {% set ddnames = (jobs[0].ddnames if (jobs|length>0) else []) | default([]) %}
+      {% set dd = (ddnames[0] if (ddnames|length>0) else {}) %}
+      {% if dd == {} %}
+      [Spool fetch failed or DD not available: JESYSMSG for {{ _job_name }} {{ _job_id }}]
+      {% elif dd.content is string %}
+      {{ dd.content }}
+      {% elif dd.content is sequence %}
+      {{ dd.content | join('\n') }}
+      {% else %}
+      {{ (dd.records | default([])) | join('\n') }}
+      {% endif %}
+
+# ---------------------------
+# EXTRA OUTPUT (only for PRNTVASM and RUNORCH)
+#   PRNTVASM => SYSPRINT expected
+#   RUNORCH  => SYSOUT expected
+#   Fallback: try the other one if preferred isn't present
+# ---------------------------
+- name: Set extra DD preference (PRNTVASM/RUNORCH only)
+  ansible.builtin.set_fact:
+    _extra_dd_preferred: "{{ 'SYSPRINT' if _job_name == 'PRNTVASM' else 'SYSOUT' }}"
+    _extra_dd_fallback: "{{ 'SYSOUT' if _job_name == 'PRNTVASM' else 'SYSPRINT' }}"
+  when: _job_name in ['PRNTVASM', 'RUNORCH']
+
+- name: "Get preferred extra DD {{ _extra_dd_preferred }} ({{ _job_name }} {{ _job_id }})"
+  zos_job_output:
+    job_id: "{{ _job_id }}"
+    ddname: "{{ _extra_dd_preferred }}"
+  register: extra_pref
+  retries: 10
+  delay: 3
+  until:
+    - extra_pref is succeeded
+    - (extra_pref.jobs | default([]) | length) > 0
+    - (extra_pref.jobs[0].ddnames | default([]) | length) > 0
+  ignore_errors: true
+  when: _job_name in ['PRNTVASM', 'RUNORCH']
+
+- name: "Get fallback extra DD {{ _extra_dd_fallback }} ({{ _job_name }} {{ _job_id }})"
+  zos_job_output:
+    job_id: "{{ _job_id }}"
+    ddname: "{{ _extra_dd_fallback }}"
+  register: extra_fallback
+  retries: 10
+  delay: 3
+  until:
+    - extra_fallback is succeeded
+    - (extra_fallback.jobs | default([]) | length) > 0
+    - (extra_fallback.jobs[0].ddnames | default([]) | length) > 0
+  ignore_errors: true
+  when: _job_name in ['PRNTVASM', 'RUNORCH'] and
+        (extra_pref is not defined or
+         extra_pref is failed or
+         (extra_pref.jobs | default([]) | length) == 0 or
+         (extra_pref.jobs[0].ddnames | default([]) | length) == 0)
+
+- name: Normalize EXTRA output text (PRNTVASM/RUNORCH only)
+  ansible.builtin.set_fact:
+    extra_ddname: >-
+      {% set p = (extra_pref | default({})) %}
+      {% set pj = (p.jobs | default([])) %}
+      {% set pdd = (pj[0].ddnames if (pj|length>0) else []) | default([]) %}
+      {% if pdd|length > 0 %}
+      {{ _extra_dd_preferred }}
+      {% else %}
+      {% set f = (extra_fallback | default({})) %}
+      {% set fj = (f.jobs | default([])) %}
+      {% set fdd = (fj[0].ddnames if (fj|length>0) else []) | default([]) %}
+      {% if fdd|length > 0 %}
+      {{ _extra_dd_fallback }}
+      {% else %}
+      NONE
+      {% endif %}
+      {% endif %}
+    extra_text: >-
+      {% set p = (extra_pref | default({})) %}
+      {% set pj = (p.jobs | default([])) %}
+      {% set pdd = (pj[0].ddnames if (pj|length>0) else []) | default([]) %}
+      {% set src = (p if (pdd|length>0) else (extra_fallback | default({}))) %}
+      {% set sj = (src.jobs | default([])) %}
+      {% set sdd = (sj[0].ddnames if (sj|length>0) else []) | default([]) %}
+      {% set dd = (sdd[0] if (sdd|length>0) else {}) %}
+      {% if dd == {} %}
+      [Spool fetch failed or DD not available: {{ _extra_dd_preferred }}/{{ _extra_dd_fallback }} for {{ _job_name }} {{ _job_id }}]
+      {% elif dd.content is string %}
+      {{ dd.content }}
+      {% elif dd.content is sequence %}
+      {{ dd.content | join('\n') }}
+      {% else %}
+      {{ (dd.records | default([])) | join('\n') }}
+      {% endif %}
+  when: _job_name in ['PRNTVASM', 'RUNORCH']
+
+# ---------------------------
+# Save combined spool to controller
+# ---------------------------
+- name: Save spool file to controller artifacts/
+  ansible.builtin.copy:
+    dest: "{{ artifacts_dir }}/{{ _job_name }}_{{ _job_id }}_{{ _jcl_file | regex_replace('\\.jcl$','') }}.spool.txt"
+    content: |
+      ===== JCL FILE: {{ _jcl_file }} =====
+      ===== JOB: {{ _job_name }}  ID: {{ _job_id }}  RC: {{ _rc }} =====
+
+      ----- JESMSGLG -----
+      {{ msglg_text }}
+
+      ----- JESJCL -----
+      {{ jesjcl_text }}
+
+      ----- JESYSMSG -----
+      {{ jesysmsg_text }}
+      {% if _job_name in ['PRNTVASM', 'RUNORCH'] %}
+
+      ----- {{ extra_ddname }} -----
+      {{ extra_text }}
+      {% endif %}
+  delegate_to: localhost

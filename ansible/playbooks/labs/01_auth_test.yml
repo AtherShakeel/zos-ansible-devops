@@ -1,0 +1,13 @@
+- name: Learn debug and variables
+  hosts: zsystems
+  gather_facts: no
+
+
+  tasks:
+    - name: Show a message
+      debug:
+        msg: "Connecting to {{ zosmf_host }}"
+
+    - name: Show raw variable
+      debug:
+        var: zosmf_host

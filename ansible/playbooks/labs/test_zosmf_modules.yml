@@ -1,0 +1,35 @@
+# playbooks/test_zosmf_modules.yml
+- name: Test z/OSMF collection modules
+  hosts: localhost
+  gather_facts: no
+  tasks:
+
+    - name: Authenticate with z/OSMF
+      ibm.ibm_zosmf.zmf_authenticate:
+        zmf_host: 204.90.115.200
+        zmf_port: 10443
+        zmf_user: "{{ lookup('env','ZOSMF_USER') }}"
+        zmf_password: "{{ lookup('env','ZOSMF_PASS') }}"
+
+    - name: List SCA packages (zmf_sca)
+      ibm.ibm_zosmf.zmf_sca:
+        zmf_host: 204.90.115.200
+        zmf_port: 10443
+        zmf_user: "{{ lookup('env','ZOSMF_USER') }}"
+        zmf_password: "{{ lookup('env','ZOSMF_PASS') }}"
+        action: list
+      register: sca_list
+
+    - name: Show SCA packages
+      debug:
+        var: sca_list
+
+    - name: Run a workflow (zmf_workflow)
+      ibm.ibm_zosmf.zmf_workflow:
+        zmf_host: 204.90.115.200
+        zmf_port: 10443
+        zmf_user: "{{ lookup('env','ZOSMF_USER') }}"
+        zmf_password: "{{ lookup('env','ZOSMF_PASS') }}"
+        workflow_name: "YOUR_WORKFLOW_NAME"
+        action: submit
+      when: false  # Disabled for safety; remove 'when: false' to run

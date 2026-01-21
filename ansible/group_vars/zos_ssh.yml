@@ -1,0 +1,8 @@
+zoau_home: /usr/lpp/IBM/zoautil
+python_path: /usr/lpp/IBM/cyp/v3r9/pyz
+
+zoau_env:
+  ZOAU_HOME: "{{ zoau_home }}"
+  PATH: "{{ python_path }}/bin:{{ zoau_home }}/bin:/bin:/usr/bin:/z/bin:/global/bin:/global/node/bin"
+  LIBPATH: "{{ zoau_home }}/lib:/lib:/usr/lib"
+  PYTHONPATH: "{{ zoau_home }}/lib"

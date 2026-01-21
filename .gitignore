@@ -1,0 +1,72 @@
+# ============================================================
+# EXISTING FROM PYTHON + ZOWE CLI PROJECT
+# ============================================================
+
+# Python Cache
+scripts/__pycache__/
+__pycache__/
+
+# IDE and System Settings
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Ansible vault (encrypted secrets)
+vault.yml
+
+
+# ============================================================
+# NEW – ANSIBLE / DEVOPS PIPELINE FILES
+# ============================================================
+
+# Local build artifacts (spool outputs, logs)
+artifacts/
+*.spool.txt
+*.log
+1.1.0
+# Ansible retry files
+*.retry
+
+# Ansible local cache / galaxy installs (reproducible via requirements.yml)
+ansible/collections/
+ansible/galaxy_collections/
+ansible/roles/.galaxy_install_info
+ansible/.ansible/
+
+# Virtual environments
+ansible-env/
+.venv/
+venv/
+
+# Generated Ansible config overrides
+ansible/*.cfg.local
+
+# ============================================================
+# SSH / CREDENTIAL SAFETY
+# ============================================================
+
+# Private keys – NEVER commit
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+known_hosts
+ssh_config
+*.ppk
+
+# Environment files that may contain secrets
+.env
+.env.*
+credentials.yml
+secrets.yml
+
+# ============================================================
+# OPTIONAL – JENKINS / CI
+# ============================================================
+
+# Jenkins workspace artifacts (if ever checked locally)
+workspace/
+*.junit

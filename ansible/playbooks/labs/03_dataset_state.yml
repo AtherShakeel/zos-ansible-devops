@@ -1,0 +1,26 @@
+- name: Dataset state lab (ensure TESTSEQ exists)
+  hosts: zos_ssh
+  gather_facts: no
+
+  environment: "{{ zoau_env }}"
+
+  vars:
+    test_dsn: "Z88264.ZBRIDGE.TESTSEQ"
+
+  tasks:
+    - name: Ensure TESTSEQ exists (state=present)
+      ibm.ibm_zos_core.zos_data_set:
+        name: "{{ test_dsn }}"
+        type: pds
+        record_format: fb
+        record_length: 80
+        space_type: trk
+        space_primary: 2
+        space_secondary: 2
+        directory_blocks: 10
+        state: present
+      register: ds_result
+
+    - name: Show module result (what Ansible did)
+      debug:
+        var: ds_result

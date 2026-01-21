@@ -1,0 +1,19 @@
+hlq: "Z88264"
+app_prefix: "AZBRIDGE"   # change to "ZBRIDGE" when you want to target old namespace
+
+datasets:
+  source:  "{{ hlq }}.{{ app_prefix }}.SOURCE"
+  subsrc:  "{{ hlq }}.{{ app_prefix }}.SUBSRC"
+  copylib: "{{ hlq }}.{{ app_prefix }}.COPYLIB"
+  objlib:  "{{ hlq }}.{{ app_prefix }}.OBJLIB"
+  loadlib: "{{ hlq }}.{{ app_prefix }}.LOADLIB"
+  trans:   "{{ hlq }}.{{ app_prefix }}.TRANS"
+  master:  "{{ hlq }}.{{ app_prefix }}.MASTER"
+
+jcl_chain:
+  - compile_static.jcl
+  - compile_calc.jcl
+  - compile_alert.jcl
+  - compile_main.jcl
+  - run_main.jcl
+  - util_print_vsam.jcl

@@ -1,0 +1,11 @@
+- name: Test zos_ssh
+  hosts: zos_ssh
+  tasks:
+    - debug:
+        msg: "COPYLIB={{ datasets.copylib }} | zoau_home={{ zoau_home }}"
+
+- name: Test zos_api
+  hosts: zos_api
+  tasks:
+    - debug:
+        msg: "COPYLIB={{ datasets.copylib }} | zosmf_host={{ zosmf_host }}"

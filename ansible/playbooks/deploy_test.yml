@@ -1,0 +1,179 @@
+---
+- name: Deploy ZOS-Ansible-Devops end-to-end using zos_core over SSH (clean output + spool artifacts)
+  hosts: zos_ssh
+  gather_facts: false
+  environment: "{{ zoau_env }}"
+  collections:
+    - ibm.ibm_zos_core
+
+  vars:
+    # Repo root = ../../ from ansible/playbooks
+    repo_root: "{{ playbook_dir }}/../.."
+
+    # Where to write spool artifacts on the controller (WSL)
+    artifacts_dir: "{{ repo_root }}/artifacts"
+
+    # Allow RC 0-4, fail on 8+
+    max_ok_rc: 4
+
+    # Optional: force VSAM prime even if it already exists
+    force_prime: false
+
+  tasks:
+    # -------------------------------------------------------------------------
+    # 0) Local artifacts folder (on your WSL controller)
+    # -------------------------------------------------------------------------
+    - name: Ensure artifacts directory exists on controller
+      ansible.builtin.file:
+        path: "{{ artifacts_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    # -------------------------------------------------------------------------
+    # 1) Ensure datasets exist (idempotent)
+    # -------------------------------------------------------------------------
+    - name: Ensure application datasets exist
+      zos_data_set:
+        name: "{{ item.name }}"
+        type: "{{ item.type }}"
+        state: present
+
+    # Non-VSAM (PS/PDS/PDSE)
+        record_format: "{{ item.recfm | default(omit) if item.type not in ['ksds','esds','rrds','lds'] else omit }}"
+        record_length: "{{ item.lrecl | default(omit) if item.type not in ['ksds','esds','rrds','lds'] else omit }}"
+
+    # VSAM (KSDS/ESDS/RRDS/LDS)
+        key_length: "{{ item.key_length | default(omit) if item.type in ['ksds','rrds'] else omit }}"
+        key_offset: "{{ item.key_offset | default(omit) if item.type in ['ksds','rrds'] else omit }}"
+        block_size: "{{ item.blksize | default(omit) if item.type in ['ksds','esds','rrds','lds'] else omit }}"
+        volumes: "{{ [item.vol] if (item.vol is defined and item.type in ['ksds','esds','rrds','lds']) else omit }}"
+
+        space_type: trk
+        space_primary: "{{ item.pri | default(5) }}"
+        space_secondary: "{{ item.sec | default(2) }}"
+
+    # Only for PDS/PDSE
+        directory_blocks: "{{ item.dir | default(omit) if item.type in ['pds','pdse'] else omit }}"
+      loop:
+        - { name: "{{ datasets.source }}",  type: pds,  recfm: fb, lrecl: 80, dir: 20 }
+        - { name: "{{ datasets.subsrc }}",  type: pds,  recfm: fb, lrecl: 80, dir: 20 }
+        - { name: "{{ datasets.copylib }}", type: pds,  recfm: fb, lrecl: 80, dir: 20 }
+        - { name: "{{ datasets.objlib }}",  type: pds,  recfm: u,  dir: 20 }
+        - { name: "{{ datasets.loadlib }}", type: pdse, recfm: u,  dir: 20 }
+        - { name: "{{ datasets.trans }}",   type: seq,  recfm: fb, lrecl: 80, pri: 5 }
+        - { name: "{{ datasets.master }}",  type: ksds, key_length: 10, key_offset: 0, blksize: 80 }
+      register: ds_create
+
+
+    # -----------------------------------------------------------------------------------
+    # 2) Check if the VSAM is just created, if yes only then PRIME the VSAM,else ignore
+    # -----------------------------------------------------------------------------------
+
+    - name: Capture MASTER dataset result object
+      ansible.builtin.set_fact:
+        master_result: >-
+          {{
+            (ds_create.results
+            | selectattr('item.name', 'equalto', datasets.master)
+            | list
+            | first)
+            | default({})
+          }}
+
+    - name: Determine if VSAM MASTER was created/changed
+      ansible.builtin.set_fact:
+        master_changed: "{{ master_result.changed | default(false) | bool }}"   
+
+      # Debug and print on terminal
+    - name: Debug master_changed
+      ansible.builtin.debug:
+        msg: "master_changed={{ master_changed }} | master_result.changed={{ master_result.changed | default('MISSING') }}"
+  
+
+    - name: Prime VSAM MASTER only on first creation
+      zos_job_submit:
+        src: "{{ repo_root }}/jcl/setup_env.jcl"
+        location: local
+        wait_time_s: 300
+        return_output: false
+      register: vsam_setup_job
+      when: master_changed or force_prime | bool
+
+    # -------------------------------------------------------------------------
+    # 3) Upload sources/data (mirrors your Zowe uploads)
+    # -------------------------------------------------------------------------
+    - name: Upload copybooks -> COPYLIB
+      zos_copy:
+        src: "{{ repo_root }}/copy/"
+        dest: "{{ datasets.copylib }}"
+        remote_src: false
+        force: true
+
+    - name: Upload subprograms -> SUBSRC
+      zos_copy:
+        src: "{{ repo_root }}/subprogs/"
+        dest: "{{ datasets.subsrc }}"
+        remote_src: false
+        force: true
+
+    - name: Upload COBOL -> SOURCE
+      zos_copy:
+        src: "{{ repo_root }}/cobol/"
+        dest: "{{ datasets.source }}"
+        remote_src: false
+        force: true
+
+    - name: Upload transactions -> TRANS (overwrite PS)
+      zos_copy:
+        src: "{{ repo_root }}/data/transactions.txt"
+        dest: "{{ datasets.trans }}"
+        remote_src: false
+        force: true
+
+    # -------------------------------------------------------------------------
+    # 4) Submit JCL chain and wait (structured results)
+    # -------------------------------------------------------------------------
+    - name: Submit JCL chain and wait
+      zos_job_submit:
+        src: "{{ repo_root }}/jcl/{{ item }}"
+        location: local
+        wait_time_s: 300
+        return_output: false
+      loop: "{{ jcl_chain }}"
+      register: job_runs
+      no_log: true
+
+    - name: Show job summaries
+      ansible.builtin.debug:
+        msg: "JCL={{ item.item }} | JOB={{ item.jobs[0].job_name }} {{ item.jobs[0].job_id }} | RC={{ item.jobs[0].ret_code.code }}"
+      loop: "{{ job_runs.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+    
+    - name: Inspect first job result structure
+      debug:
+        var: job_runs.results[0]
+      when: debug | default(false) | bool
+
+    # -------------------------------------------------------------------------
+    # 5) Save spool for EVERY job (JESMSGLG / JESJCL / JESYSMSG)
+    # -------------------------------------------------------------------------
+    - name: Fetch spool and save locally for each job
+      ansible.builtin.include_tasks: tasks/save_spool.yml
+      loop: "{{ job_runs.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      vars:
+        job_item: "{{ item }}"
+
+    # -------------------------------------------------------------------------
+    # 6) Fail pipeline if any job RC > 4 (after spools are saved)
+    # -------------------------------------------------------------------------
+    - name: Fail if any job RC > {{ max_ok_rc }}
+      ansible.builtin.fail:
+        msg: "FAIL: {{ item.item }} => {{ item.jobs[0].job_name }} {{ item.jobs[0].job_id }} RC={{ item.jobs[0].ret_code.code }} (spool saved under artifacts/)"
+      when: item.jobs[0].ret_code.code | int > 4
+      loop: "{{ job_runs.results }}"
+      loop_control:
+        label: "{{ item.item }}"
