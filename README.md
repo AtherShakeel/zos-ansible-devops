@@ -121,7 +121,7 @@ Override:
 
 bash
 Copy code
-ansible-playbook -i hosts.ini playbooks/dply.yml -e force_prime=true
+ansible-playbook -i hosts.ini playbooks/deploy.yml -e force_prime=true
 Meaning:
 
 “Reset VSAM contents without redefining it”
@@ -160,7 +160,7 @@ Debug mode:
 
 bash
 Copy code
-ansible-playbook -i hosts.ini playbooks/dply.yml -e debug=true
+ansible-playbook -i hosts.ini playbooks/deploy.yml -e debug=true
 
 
 9. ACTUAL Project Structure
@@ -241,9 +241,9 @@ ansible-galaxy collection install -r requirements.yml
 ansible-playbook -i hosts.ini playbooks/deploy.yml
 
 Force VSAM prime:
-ansible-playbook -i hosts.ini playbooks/dply.yml -e force_prime=true
+ansible-playbook -i hosts.ini playbooks/deploy.yml -e force_prime=true
 Debug mode:
-ansible-playbook -i hosts.ini playbooks/dply.yml -e debug=true
+ansible-playbook -i hosts.ini playbooks/deploy.yml -e debug=true
 
 
 12. Jenkins
