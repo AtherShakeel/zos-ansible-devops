@@ -1,4 +1,12 @@
 # zos-ansible-devops  
+
+![COBOL](https://img.shields.io/badge/Language-COBOL-blue)
+![JCL](https://img.shields.io/badge/Language-JCL-blue)
+![Ansible](https://img.shields.io/badge/Automation-Ansible-red)
+![Jenkins](https://img.shields.io/badge/CI-Jenkins-orange)
+![zOS](https://img.shields.io/badge/Platform-IBM%20z%2FOS-green)
+
+
 ### Enterprise-style z/OS CI/CD using Ansible and ZOAU
 
 ---
