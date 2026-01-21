@@ -91,6 +91,8 @@ Injected via:
 
 ```yaml
 environment: "{{ zoau_env }}"
+
+
 5. Dataset model (source of truth)
 Defined in:
 ansible/group_vars/all.yml
@@ -107,6 +109,7 @@ MASTER	VSAM KSDS	Keylen=10
 ⚠ If a dataset was created with wrong attributes,
 state: present will NOT correct it — it must be recreated.
 
+
 6. VSAM priming & force_prime
 VSAM is primed using setup_env.jcl.
 
@@ -122,6 +125,7 @@ ansible-playbook -i hosts.ini playbooks/dply.yml -e force_prime=true
 Meaning:
 
 “Reset VSAM contents without redefining it”
+
 
 7. Spool & artifacts
 Captured for every job:
@@ -144,6 +148,7 @@ Copy code
 artifacts/
 Spool is saved even when the pipeline fails.
 
+
 8. Console output philosophy
 Job submits use no_log: true
 
@@ -156,6 +161,8 @@ Debug mode:
 bash
 Copy code
 ansible-playbook -i hosts.ini playbooks/dply.yml -e debug=true
+
+
 9. ACTUAL Project Structure
 powershell
 Copy code
@@ -210,6 +217,7 @@ deploy_test.yml – experiments
 
 zapp.yaml – not used
 
+
 10. Dependencies
 ansible/requirements.yml
 
@@ -223,12 +231,21 @@ bash
 Copy code
 cd ansible
 ansible-galaxy collection install -r requirements.yml
-11. Run locally
+
+
+11. Quick Start (Run locally)
 bash
 Copy code
 cd ansible
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook -i hosts.ini playbooks/deploy.yml
+
+Force VSAM prime:
+ansible-playbook -i hosts.ini playbooks/dply.yml -e force_prime=true
+Debug mode:
+ansible-playbook -i hosts.ini playbooks/dply.yml -e debug=true
+
+
 12. Jenkins
 Jenkins performs:
 
@@ -247,6 +264,8 @@ Pipeline defined in:
 nginx
 Copy code
 Jenkinsfile
+
+
 13. Design principles
 Idempotent
 
@@ -257,6 +276,7 @@ Clean logs
 Single source of truth
 
 CI/CD ready
+
 
 14. Status
 ✅ End-to-end working
