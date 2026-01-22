@@ -5,6 +5,13 @@
 ![Ansible](https://img.shields.io/badge/Automation-Ansible-red)
 ![Jenkins](https://img.shields.io/badge/CI-Jenkins-orange)
 ![zOS](https://img.shields.io/badge/Platform-IBM%20z%2FOS-green)
+![VSAM](https://img.shields.io/badge/VSAM-Validation-purple)
+![Repo size](https://img.shields.io/github/repo-size/AtherShakeel/ZBridge-Orchestrator)
+![Contributors](https://img.shields.io/github/contributors/AtherShakeel/ZBridge-Orchestrator)
+![Issues](https://img.shields.io/github/issues/AtherShakeel/ZBridge-Orchestrator)
+![Last commit](https://img.shields.io/github/last-commit/AtherShakeel/ZBridge-Orchestrator)
+![Stars](https://img.shields.io/github/stars/AtherShakeel/ZBridge-Orchestrator?style=social)
+![Forks](https://img.shields.io/github/forks/AtherShakeel/ZBridge-Orchestrator?style=social)
 
 
 ### Enterprise-style z/OS CI/CD using Ansible and ZOAU
