@@ -5,7 +5,7 @@ pipeline {
         // Keep last N builds and artifacts on the controller (Windows)
         buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
 
-        timeout(time: 10, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
         ansiColor('xterm')
         timestamps()
     }
