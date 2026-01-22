@@ -1,7 +1,10 @@
 pipeline {
-    agent {label 'linux'}
+    agent { label 'linux' }
 
     options {
+        // Keep last N builds and artifacts on the controller (Windows)
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+
         timeout(time: 10, unit: 'MINUTES')
         ansiColor('xterm')
         timestamps()
@@ -13,28 +16,53 @@ pipeline {
     }
 
     environment {
-        // Keep Ansible output readable in Jenkins
         ANSIBLE_STDOUT_CALLBACK = "yaml"
         ANSIBLE_FORCE_COLOR = "true"
         PYTHONUNBUFFERED = "1"
         ANSIBLE_HOST_KEY_CHECKING = "False"
 
-        // venv inside workspace (reproducible, no dependency on node global state)
         VENV_DIR = "${WORKSPACE}/.venv"
 
-        // Jenkins credentials:
-        // - github-auth: used for pulling repo (you already have this)
-        // - zos-ssh-key: SSH Username with private key for z/OS host access
         ZOS_SSH_CRED = "zos-ssh-key"
     }
 
     stages {
+
+        stage('Clean Workspace') {
+            steps {
+                // Built-in: wipes the agent workspace folder contents
+                deleteDir()
+            }
+        }
+
+        stage('Preflight (Agent)') {
+            steps {
+                sh '''
+                  set -e
+                  echo "User: $(whoami)"
+                  echo "PWD: $(pwd)"
+                  echo "WORKSPACE: $WORKSPACE"
+                  which git
+                  git --version
+                  ls -ld .
+                  ls -ld "$WORKSPACE"
+                '''
+            }
+        }
+
         stage('Pull from GitHub') {
             steps {
                 echo 'Pulling fresh zos-ansible-devops code...'
-                git branch: 'main',
-                    credentialsId: 'github-auth',
-                    url: 'https://github.com/AtherShakeel/zos-ansible-devops'
+                checkout([$class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/AtherShakeel/zos-ansible-devops',
+                        credentialsId: 'github-auth'
+                    ]],
+                    extensions: [
+                        [$class: 'CleanBeforeCheckout']
+                    ]
+                ])
             }
         }
 
@@ -70,7 +98,6 @@ pipeline {
             steps {
                 echo 'Starting z/OS deployment via Ansible (datasets → uploads → JCL chain → spool artifacts)...'
 
-                // Uses SSH key stored in Jenkins
                 sshagent(credentials: [env.ZOS_SSH_CRED]) {
                     sh '''
                         set -e
@@ -94,6 +121,15 @@ pipeline {
 
     post {
         always {
+            echo 'Normalizing spool artifacts (convert literal \\n to real newlines)...'
+            sh '''
+                set -e
+                if [ -d "artifacts" ]; then
+                  find artifacts -type f -name "*.spool.txt" -print0 2>/dev/null | \
+                    xargs -0 -r perl -0777 -pe 's/\\\\n/\\n/g' -i
+                fi
+            '''
+
             echo 'Pipeline finished. Archiving artifacts (spools/output)...'
             archiveArtifacts artifacts: 'artifacts/**', allowEmptyArchive: true, fingerprint: true
         }
