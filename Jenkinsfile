@@ -11,6 +11,7 @@ pipeline {
     }
 
     parameters {
+        string(name: 'BRANCH', defaultValue: 'phase1-ci-hardening', description: 'Git branch to build')
         booleanParam(name: 'FORCE_PRIME', defaultValue: false, description: 'Force VSAM priming even if MASTER already exists')
         booleanParam(name: 'DEBUG', defaultValue: false, description: 'Debug mode (shows more Ansible detail)')
     }
@@ -53,7 +54,7 @@ pipeline {
             steps {
                 echo 'Pulling fresh zos-ansible-devops code...'
                 checkout([$class: 'GitSCM',
-                    branches: [[name: '*/main']],
+                    branches: [[name: "*/${params.BRANCH}"]],
                     userRemoteConfigs: [[
                         url: 'https://github.com/AtherShakeel/zos-ansible-devops',
                         credentialsId: 'github-auth'
