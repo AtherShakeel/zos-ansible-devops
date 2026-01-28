@@ -20,10 +20,9 @@ pipeline {
         ANSIBLE_FORCE_COLOR = "true"
         PYTHONUNBUFFERED = "1"
         ANSIBLE_HOST_KEY_CHECKING = "False"
-
         VENV_DIR = "${WORKSPACE}/.venv"
-
         ZOS_SSH_CRED = "zos-ssh-key"
+        ARTIFACT_DIR = "artifacts/build-${BUILD_NUMBER}"
     }
 
     stages {
@@ -59,9 +58,7 @@ pipeline {
                         url: 'https://github.com/AtherShakeel/zos-ansible-devops',
                         credentialsId: 'github-auth'
                     ]],
-                    extensions: [
-                        [$class: 'CleanBeforeCheckout']
-                    ]
+                    extensions: [[$class: 'CleanBeforeCheckout']]
                 ])
             }
         }
@@ -112,7 +109,9 @@ pipeline {
                           EXTRA_VARS="$EXTRA_VARS -e debug=true"
                         fi
 
-                        ansible-playbook -i hosts.ini playbooks/deploy.yml $EXTRA_VARS
+                        ansible-playbook -i hosts.ini playbooks/deploy.yml \
+                          -e artifact_dir=${ARTIFACT_DIR} \
+                          $EXTRA_VARS
                     '''
                 }
             }
