@@ -23,7 +23,7 @@ pipeline {
         ANSIBLE_HOST_KEY_CHECKING = "False"
         VENV_DIR = "${WORKSPACE}/.venv"
         ZOS_SSH_CRED = "zos-ssh-key"
-        ARTIFACT_DIR = "artifacts/build-${BUILD_NUMBER}"
+        ARTIFACTS_DIR = "{$WORKSPACE}/artifacts/build-${BUILD_NUMBER}"
     }
 
     stages {
@@ -111,7 +111,7 @@ pipeline {
                         fi
 
                         ansible-playbook -i hosts.ini playbooks/deploy.yml \
-                          -e artifact_dir=${ARTIFACT_DIR} \
+                          -e artifacts_dir=${ARTIFACTS_DIR} \
                           $EXTRA_VARS
                     '''
                 }
