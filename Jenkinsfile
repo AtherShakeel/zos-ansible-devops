@@ -23,7 +23,7 @@ pipeline {
         ANSIBLE_HOST_KEY_CHECKING = "False"
         VENV_DIR = "${WORKSPACE}/.venv"
         ZOS_SSH_CRED = "zos-ssh-key"
-        ARTIFACTS_DIR = "{$WORKSPACE}/artifacts/build-${BUILD_NUMBER}"
+        ARTIFACTS_DIR = "${WORKSPACE}/artifacts/build-${BUILD_NUMBER}"
     }
 
     stages {
@@ -110,8 +110,11 @@ pipeline {
                           EXTRA_VARS="$EXTRA_VARS -e debug=true"
                         fi
 
+                        mkdir -p "${ARTIFACTS_DIR}"
+                        echo "Artifacts will be written to: ${ARTIFACTS_DIR}"
+
                         ansible-playbook -i hosts.ini playbooks/deploy.yml \
-                          -e artifacts_dir=${ARTIFACTS_DIR} \
+                          -e "artifacts_dir=${ARTIFACTS_DIR}" \
                           $EXTRA_VARS
                     '''
                 }
@@ -124,14 +127,14 @@ pipeline {
             echo 'Normalizing spool artifacts (convert literal \\n to real newlines)...'
             sh '''
                 set -e
-                if [ -d "artifacts" ]; then
-                  find artifacts -type f -name "*.spool.txt" -print0 2>/dev/null | \
+                if [ -d "${ARTIFACTS_DIR}" ]; then
+                  find "${ARTIFACTS_DIR}" -type f -name "*.spool.txt" -print0 2>/dev/null | \
                     xargs -0 -r perl -0777 -pe 's/\\\\n/\\n/g' -i
                 fi
             '''
 
             echo 'Pipeline finished. Archiving artifacts (spools/output)...'
-            archiveArtifacts artifacts: 'artifacts/**', allowEmptyArchive: true, fingerprint: true
+            archiveArtifacts artifacts: "artifacts/build-${BUILD_NUMBER}/**", allowEmptyArchive: true, fingerprint: true
         }
         failure {
             echo 'FAILURE: Check artifacts (spool files) in the Build Artifacts section.'
