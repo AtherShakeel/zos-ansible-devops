@@ -1,5 +1,5 @@
 //RUNORCH  JOB (ACCT),'RUN ZBRIDGE',CLASS=A,MSGCLASS=X
-//  SET HLQ='Z88264.AZBRIDGE'
+//  SET HLQ='{{ hlq }}.{{ app_prefix }}'
 //*
 //*****************************************************************
 //* EXECUTE THE MAIN ORCHESTRATOR

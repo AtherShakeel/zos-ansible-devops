@@ -1,9 +1,28 @@
 ---
 # Section 4 of original deploy.yml (role version)
 
+- name: Create rendered JCL dir
+  ansible.builtin.file:
+    path: "{{ artifacts_dir }}/rendered_jcl"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+
+- name: Render JCL chain with env HLQ
+  ansible.builtin.template:
+    src: "{{ repo_root }}/jcl/{{ item }}"
+    dest: "{{ artifacts_dir }}/rendered_jcl/{{ item }}"
+  loop: "{{ jcl_chain }}"
+  loop_control:
+    label: "{{ item }}"
+  delegate_to: localhost
+  run_once: true
+
+
 - name: Submit JCL chain and wait
   ibm.ibm_zos_core.zos_job_submit:
-    src: "{{ repo_root }}/jcl/{{ item }}"
+    src: "{{ artifacts_dir }}/rendered_jcl/{{ item }}"
     location: local
     wait_time_s: 300
     return_output: false
