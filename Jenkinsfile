@@ -2,6 +2,8 @@ pipeline {
   agent { label 'linux' }
 
   options {
+    skipDefaultCheckout(true)
+    disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
     timeout(time: 30, unit: 'MINUTES')
     ansiColor('xterm')
@@ -12,11 +14,10 @@ pipeline {
   }
 
   parameters {
-    // Keep your existing knobs
     booleanParam(name: 'FORCE_PRIME', defaultValue: false, description: 'Force VSAM priming even if MASTER already exists')
     booleanParam(name: 'DEBUG', defaultValue: false, description: 'Debug mode (shows more Ansible detail)')
 
-    // Optional escape hatch: override env if you really need to (rare)
+    // Optional escape hatch (keep it, but we restrict prod override below)
     choice(name: 'ENV_OVERRIDE', choices: ['', 'dev', 'int', 'prod'], description: 'Optional: override inferred environment (blank = auto)')
   }
 
@@ -35,23 +36,29 @@ pipeline {
 
   stages {
 
-    stage('Init (Branch/PR → Env)') {
+    stage('Init (Branch → Env)') {
       steps {
         script {
           // Multibranch sets BRANCH_NAME / CHANGE_ID automatically.
-          // Non-multibranch may not; this is still safe.
           def branch = env.BRANCH_NAME ?: "unknown"
           def isPR = (env.CHANGE_ID != null && env.CHANGE_ID.trim() != "")
 
-          // Infer env from branch
+          // Branch → Env mapping (new model)
           def inferredEnv = "dev"
-          if (branch == "develop") inferredEnv = "int"
-          if (branch == "main" || branch == "master") inferredEnv = "prod"
+          if (branch == "int") inferredEnv = "int"
+          if (branch == "dev") inferredEnv = "dev"
+          if (branch == "main" || branch == "master" || branch == "prod") inferredEnv = "prod"
 
           // Optional override
           def finalEnv = inferredEnv
           if (params.ENV_OVERRIDE?.trim()) {
             finalEnv = params.ENV_OVERRIDE.trim()
+          }
+
+          // Safety: NEVER allow prod deploy from non-prod branches, even with override
+          def isProdBranch = (branch == "main" || branch == "master" || branch == "prod")
+          if (finalEnv == "prod" && !isProdBranch) {
+            error("Refusing PROD deploy from branch '${branch}'. Only 'main'/'master'/'prod' can deploy to prod.")
           }
 
           // Safe mode: PR builds should never deploy to z/OS by default
@@ -61,6 +68,9 @@ pipeline {
           env.SAFE_MODE = safeMode.toString()
           env.GIT_BRANCH_EFFECTIVE = branch
           env.IS_PR = isPR.toString()
+
+          // Make env visible at a glance in Jenkins UI
+          currentBuild.displayName = "#${env.BUILD_NUMBER} ${env.DEPLOY_ENV} ${branch}"
 
           echo """
           Branch: ${branch}
@@ -80,7 +90,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        // Multibranch: this checks out the current branch/PR automatically
+        // Multibranch: checks out the current branch automatically
         checkout scm
       }
     }
@@ -109,7 +119,7 @@ pipeline {
           . "$VENV_DIR/bin/activate"
           python -m pip install --upgrade pip
 
-          # Pin later if you want reproducibility; for now keep it simple
+          # Keep simple for now (can pin later)
           pip install ansible ansible-lint
 
           ansible --version
@@ -137,10 +147,7 @@ pipeline {
           . "$VENV_DIR/bin/activate"
           cd ansible
 
-          # Basic playbook syntax check
           ansible-playbook --syntax-check playbooks/deploy.yml
-
-          # Lint (non-fatal if you’re still iterating)
           ansible-lint -q playbooks/deploy.yml || true
         '''
       }
@@ -152,7 +159,6 @@ pipeline {
       }
       steps {
         script {
-          // Manual approval before touching prod-like environment
           input message: "Approve PROD deployment for build #${env.BUILD_NUMBER} (branch: ${env.GIT_BRANCH_EFFECTIVE})?",
                 ok: "Deploy to PROD"
         }
