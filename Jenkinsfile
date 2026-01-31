@@ -44,7 +44,7 @@ pipeline {
         script {
           // Multibranch sets BRANCH_NAME / CHANGE_ID automatically.
           def branch = (env.BRANCH_NAME ?: "unknown").trim()
-          def isPR = (env.CHANGE_ID != null && env.CHANGE_ID.trim() != "")
+          def isPR = (env.CHANGE_ID != null && env.CHANGE_ID.trim() != "")      
 
           // Branch → Env mapping (ENV-NAMED BRANCHES MODEL)
           // dev  -> dev   int  -> int    main/master/prod  -> prod
@@ -73,7 +73,7 @@ pipeline {
           def safeMode = isPR || !allowedDeployBranches.contains(branch)
 
           env.DEPLOY_ENV = finalEnv
-          env.SAFE_MODE = safeMode.toString()
+          env.SAFE_MODE = safeMode.toString()  // PR test: verify AFE_MODE works
           env.GIT_BRANCH_EFFECTIVE = branch
           env.IS_PR = isPR.toString()
 
