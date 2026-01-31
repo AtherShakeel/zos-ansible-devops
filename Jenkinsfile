@@ -39,20 +39,22 @@ pipeline {
 
   stages {
 
-    stage('Init (Branch → Env)') {
+    stage('Stage 1- Init (Branch → Env)') {
       steps {
         script {
           // Multibranch sets BRANCH_NAME / CHANGE_ID automatically.
-          def branch = env.BRANCH_NAME ?: "unknown"
+          def branch = (env.BRANCH_NAME ?: "unknown").trim()
           def isPR = (env.CHANGE_ID != null && env.CHANGE_ID.trim() != "")
 
-          // Branch → Env mapping (new model)
+          // Branch → Env mapping (ENV-NAMED BRANCHES MODEL)
+          // dev  -> dev   int  -> int    main/master/prod  -> prod
+          // anything else -> dev (but SAFE_MODE=true unless explicitly allowed)
           def inferredEnv = "dev"
           if (branch == "int") inferredEnv = "int"
           if (branch == "dev") inferredEnv = "dev"
           if (branch == "main" || branch == "master" || branch == "prod") inferredEnv = "prod"
 
-          // Optional override
+          // Optional override (blank = auto)
           def finalEnv = inferredEnv
           if (params.ENV_OVERRIDE?.trim()) {
             finalEnv = params.ENV_OVERRIDE.trim()
@@ -64,8 +66,11 @@ pipeline {
             error("Refusing PROD deploy from branch '${branch}'. Only 'main'/'master'/'prod' can deploy to prod.")
           }
 
-          // Safe mode: PR builds should never deploy to z/OS by default
-          def safeMode = isPR
+          // Safe mode rules:
+          // PR builds: always SAFE_MODE=true, should never deploy to z/OS by default
+          // Non-PR builds: only these branches are allowed to deploy
+          def allowedDeployBranches = ['dev', 'int', 'main', 'master', 'prod', 'phase2-multibranch']
+          def safeMode = isPR || !allowedDeployBranches.contains(branch)
 
           env.DEPLOY_ENV = finalEnv
           env.SAFE_MODE = safeMode.toString()
@@ -80,25 +85,38 @@ pipeline {
           PR Build: ${isPR}
           DEPLOY_ENV: ${env.DEPLOY_ENV}
           SAFE_MODE: ${env.SAFE_MODE}
+          ENV_OVERRIDE: ${params.ENV_OVERRIDE}
           """
         }
       }
     }
 
-    stage('Clean Workspace') {
+    stage('Stage 2- PR Guardrail') {
+        when { expression { return env.IS_PR == 'true' } }
+        steps {
+          echo""" 
+          PR build detected (CHANGE_ID=${env.CHANGE_ID}).
+          Running checks only — deployment is blocked by design.
+          Target branch: ${env.CHANGE_TARGET}
+          Source branch: ${env.CHANGE_BRANCH}     
+          """  
+        }
+    }
+
+    stage('Stage 3- Clean Workspace') {
       steps {
         deleteDir()
       }
     }
 
-    stage('Checkout') {
+    stage('Stage 4- Checkout') {
       steps {
         // Multibranch: checks out the current branch automatically
         checkout scm
       }
     }
 
-    stage('Preflight (Agent)') {
+    stage('Stage 5- Preflight (Agent)') {
       steps {
         sh '''
           set -e
@@ -113,7 +131,7 @@ pipeline {
       }
     }
 
-    stage('Setup Ansible Environment') {
+    stage('Stage 6- Setup Ansible Environment') {
       steps {
         sh '''
           set -e
@@ -132,7 +150,7 @@ pipeline {
       }
     }
 
-    stage('Install z/OS Collections') {
+    stage('Stage 7- Install z/OS Collections') {
       steps {
         sh '''
           set -e
@@ -143,20 +161,28 @@ pipeline {
       }
     }
 
-    stage('Lint / Syntax Check (safe)') {
+    stage('Stage 8- Lint / Syntax Check (safe)') {
       steps {
         sh '''
           set -e
           . "$VENV_DIR/bin/activate"
           cd ansible
 
-          ansible-playbook --syntax-check playbooks/deploy.yml
+          INV="inventories/${DEPLOY_ENV}/hosts.ini"
+          VARS="group_vars/${DEPLOY_ENV}.yml"
+
+          echo "Syntax-check using inventory: $INV and vars: $VARS"
+
+          # Syntax check should use the same inventory/vars so 'zos_ssh' resolves
+          ansible-playbook --syntax-check -i "$INV" playbooks/deploy.yml -e "@$VARS"
+
+          # Lint is non-fatal for now (still iterating)
           ansible-lint -q playbooks/deploy.yml || true
         '''
       }
     }
 
-    stage('Approval Gate (prod)') {
+    stage('Stage 9- Approval Gate (prod)') {
       when {
         expression { return env.DEPLOY_ENV == 'prod' && env.SAFE_MODE != 'true' }
       }
@@ -168,7 +194,7 @@ pipeline {
       }
     }
 
-    stage('Execute Deployment') {
+    stage('Stage 10- Execute Deployment') {
       when {
         expression { return env.SAFE_MODE != 'true' }
       }
@@ -213,7 +239,7 @@ pipeline {
       }
     }
 
-    stage('PR Safe Mode Notice') {
+    stage('Stage 11- PR Safe Mode Notice') {
       when {
         expression { return env.SAFE_MODE == 'true' }
       }
