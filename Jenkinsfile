@@ -1,6 +1,10 @@
 pipeline {
   agent { label 'linux' }
 
+  tools {
+    git 'Default'
+  }
+
   options {
     skipDefaultCheckout(true)
     buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
