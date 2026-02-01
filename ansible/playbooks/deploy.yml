@@ -6,6 +6,11 @@
   collections:
     - ibm.ibm_zos_core
 
+
+  vars_files:
+    - "../group_vars/all.yml"
+    - "../group_vars/zos_ssh.yml"
+
   vars:
     # Keep your style (string path). This is what you already use.
     repo_root: "{{ playbook_dir }}/../.."
@@ -15,7 +20,7 @@
     force_prime: false
 
   pre_tasks:
-    - name: Ensure artifacts directory exists on controller
+    - name: Ensure artifacts directory exists on controller ({{ artifacts_dir }})
       ansible.builtin.file:
         path: "{{ artifacts_dir }}"
         state: directory

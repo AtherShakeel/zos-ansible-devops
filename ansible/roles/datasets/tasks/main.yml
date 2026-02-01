@@ -54,12 +54,29 @@
   ansible.builtin.debug:
     msg: "master_changed={{ master_changed }} | master_result.changed={{ master_result.changed | default('MISSING') }}"
 
+#  Render setup_env.jcl on controller (needed now that it contains {{ hlq }} / {{ app_prefix }})
+- name: Ensure rendered_jcl dir exists on controller
+  ansible.builtin.file:
+    path: "{{ artifacts_dir }}/rendered_jcl"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+
+- name: Render setup_env.jcl (controller-side)
+  ansible.builtin.template:
+    src: "{{ repo_root }}/jcl/setup_env.jcl"
+    dest: "{{ artifacts_dir }}/rendered_jcl/setup_env.jcl"
+  delegate_to: localhost
+  run_once: true
+  when: master_changed or (force_prime | default(false) | bool)
+
+# Prime VSAM MASTER only on first creation (or force_prime) using rendered JCL
 - name: Prime VSAM MASTER only on first creation
   ibm.ibm_zos_core.zos_job_submit:
-    src: "{{ repo_root }}/jcl/setup_env.jcl"
+    src: "{{ artifacts_dir }}/rendered_jcl/setup_env.jcl"
     location: local
     wait_time_s: 300
     return_output: false
   register: vsam_setup_job
   when: master_changed or (force_prime | default(false) | bool)
-

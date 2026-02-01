@@ -1,0 +1,2 @@
+env: prod
+app_prefix: "AZBRIDGE"
