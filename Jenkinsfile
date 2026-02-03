@@ -17,6 +17,8 @@ pipeline {
   }
 
   parameters {
+    booleanParam(name: 'USE_DOCKER', defaultValue: false, description: 'Run Ansible inside Docker image (zos-ansible-ci)')
+    booleanParam(name: 'REBUILD_DOCKER', defaultValue: false, description: 'Force rebuild Docker CI image even if it already exists on this Jenkins agent')
     booleanParam(name: 'FORCE_PRIME', defaultValue: false, description: 'Force VSAM priming even if MASTER already exists')
     booleanParam(name: 'DEBUG', defaultValue: false, description: 'Debug mode (shows more Ansible detail)')
 
@@ -44,7 +46,7 @@ pipeline {
         script {
           // Multibranch sets BRANCH_NAME / CHANGE_ID automatically.
           def branch = (env.BRANCH_NAME ?: "unknown").trim()
-          def isPR = (env.CHANGE_ID != null && env.CHANGE_ID.trim() != "")      
+          def isPR = (env.CHANGE_ID != null && env.CHANGE_ID.trim() != "")
 
           // Branch → Env mapping (ENV-NAMED BRANCHES MODEL)
           // dev  -> dev   int  -> int    main/master/prod  -> prod
@@ -73,7 +75,7 @@ pipeline {
           def safeMode = isPR || !allowedDeployBranches.contains(branch)
 
           env.DEPLOY_ENV = finalEnv
-          env.SAFE_MODE = safeMode.toString()  // PR test: verify AFE_MODE works
+          env.SAFE_MODE = safeMode.toString()
           env.GIT_BRANCH_EFFECTIVE = branch
           env.IS_PR = isPR.toString()
 
@@ -92,15 +94,15 @@ pipeline {
     }
 
     stage('Stage 2- PR Guardrail') {
-        when { expression { return env.IS_PR == 'true' } }
-        steps {
-          echo""" 
-          PR build detected (CHANGE_ID=${env.CHANGE_ID}).
-          Running checks only — deployment is blocked by design.
-          Target branch: ${env.CHANGE_TARGET}
-          Source branch: ${env.CHANGE_BRANCH}     
-          """  
-        }
+      when { expression { return env.IS_PR == 'true' } }
+      steps {
+        echo"""
+        PR build detected (CHANGE_ID=${env.CHANGE_ID}).
+        Running checks only — deployment is blocked by design.
+        Target branch: ${env.CHANGE_TARGET}
+        Source branch: ${env.CHANGE_BRANCH}
+        """
+      }
     }
 
     stage('Stage 3- Clean Workspace') {
@@ -111,7 +113,6 @@ pipeline {
 
     stage('Stage 4- Checkout') {
       steps {
-        // Multibranch: checks out the current branch automatically
         checkout scm
       }
     }
@@ -131,7 +132,38 @@ pipeline {
       }
     }
 
-    stage('Stage 6- Setup Ansible Environment') {
+    // ===========================
+    // NEW STAGE: Build Docker CI Image (only when USE_DOCKER=true)
+    // ===========================
+    stage('Stage 6- Build Docker CI Image (optional)') {
+      when { expression { return params.USE_DOCKER } }
+      steps {
+        sh '''
+          set -e
+          echo "Docker mode enabled. Checking Docker availability..."
+          docker version
+
+          IMAGE="zos-ansible-ci"
+
+          if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "Docker image '$IMAGE' already exists on this agent."
+            if [ "${REBUILD_DOCKER}" = "true" ]; then
+              echo "REBUILD_DOCKER=true, rebuilding image..."
+              docker build -t "$IMAGE" -f ci/docker/Dockerfile .
+            else
+              echo "REBUILD_DOCKER=false, skipping rebuild."
+            fi
+          else
+            echo "Docker image '$IMAGE' not found on this agent. Building..."
+            docker build -t "$IMAGE" -f ci/docker/Dockerfile .
+          fi
+
+          docker images "$IMAGE" | head -n 5
+        '''
+      }
+    }
+
+    stage('Stage 7- Setup Ansible Environment') {
       steps {
         sh '''
           set -e
@@ -150,7 +182,7 @@ pipeline {
       }
     }
 
-    stage('Stage 7- Install z/OS Collections') {
+    stage('Stage 8- Install z/OS Collections') {
       steps {
         sh '''
           set -e
@@ -161,7 +193,7 @@ pipeline {
       }
     }
 
-    stage('Stage 8- Lint / Syntax Check (safe)') {
+    stage('Stage 9- Lint / Syntax Check (safe)') {
       steps {
         sh '''
           set -e
@@ -173,16 +205,13 @@ pipeline {
 
           echo "Syntax-check using inventory: $INV and vars: $VARS"
 
-          # Syntax check should use the same inventory/vars so 'zos_ssh' resolves
           ansible-playbook --syntax-check -i "$INV" playbooks/deploy.yml -e "@$VARS"
-
-          # Lint is non-fatal for now (still iterating)
           ansible-lint -q playbooks/deploy.yml || true
         '''
       }
     }
 
-    stage('Stage 9- Approval Gate (prod)') {
+    stage('Stage 10- Approval Gate (prod)') {
       when {
         expression { return env.DEPLOY_ENV == 'prod' && env.SAFE_MODE != 'true' }
       }
@@ -194,52 +223,99 @@ pipeline {
       }
     }
 
-    stage('Stage 10- Execute Deployment') {
+    stage('Stage 11- Execute Deployment') {
       when {
         expression { return env.SAFE_MODE != 'true' }
       }
       steps {
         echo "Deploying to z/OS via Ansible (env=${env.DEPLOY_ENV})..."
         sshagent(credentials: [env.ZOS_SSH_CRED]) {
-          sh '''
-            set -e
-            . "$VENV_DIR/bin/activate"
-            cd ansible
+          script {
+            if (params.USE_DOCKER) {
+              sh '''
+                set -e
+                cd ansible
 
-            INV="inventories/${DEPLOY_ENV}/hosts.ini"
-            VARS="group_vars/${DEPLOY_ENV}.yml"
+                INV="inventories/${DEPLOY_ENV}/hosts.ini"
+                VARS="group_vars/${DEPLOY_ENV}.yml"
 
-            if [ ! -f "$INV" ]; then
-              echo "ERROR: Missing inventory: $INV"
-              exit 2
-            fi
-            if [ ! -f "$VARS" ]; then
-              echo "ERROR: Missing vars file: $VARS"
-              exit 2
-            fi
+                if [ ! -f "$INV" ]; then
+                  echo "ERROR: Missing inventory: $INV"
+                  exit 2
+                fi
+                if [ ! -f "$VARS" ]; then
+                  echo "ERROR: Missing vars file: $VARS"
+                  exit 2
+                fi
 
-            EXTRA_VARS=""
-            if [ "${FORCE_PRIME}" = "true" ]; then
-              EXTRA_VARS="$EXTRA_VARS -e force_prime=true"
-            fi
-            if [ "${DEBUG}" = "true" ]; then
-              EXTRA_VARS="$EXTRA_VARS -e debug=true"
-            fi
+                EXTRA_VARS=""
+                if [ "${FORCE_PRIME}" = "true" ]; then
+                  EXTRA_VARS="$EXTRA_VARS -e force_prime=true"
+                fi
+                if [ "${DEBUG}" = "true" ]; then
+                  EXTRA_VARS="$EXTRA_VARS -e debug=true"
+                fi
 
-            mkdir -p "${ARTIFACTS_DIR}"
-            echo "Artifacts will be written to: ${ARTIFACTS_DIR}"
+                mkdir -p "${ARTIFACTS_DIR}"
+                echo "Artifacts will be written to: ${ARTIFACTS_DIR}"
 
-            ansible-playbook -i "$INV" playbooks/deploy.yml \
-              -e "@${VARS}" \
-              -e "env=${DEPLOY_ENV}" \
-              -e "artifacts_dir=${ARTIFACTS_DIR}" \
-              $EXTRA_VARS
-          '''
+                docker run --rm \
+                  -v "$PWD/..:/workspace" -w /workspace \
+                  -e SSH_AUTH_SOCK="$SSH_AUTH_SOCK" \
+                  -v "$SSH_AUTH_SOCK:$SSH_AUTH_SOCK" \
+                  zos-ansible-ci \
+                  bash -lc "
+                    set -e
+                    cd ansible
+                    ansible-playbook -i '$INV' playbooks/deploy.yml \
+                      -e '@$VARS' \
+                      -e 'env=${DEPLOY_ENV}' \
+                      -e 'artifacts_dir=/workspace/${ARTIFACTS_DIR}' \
+                      $EXTRA_VARS
+                  "
+              '''
+            } else {
+              sh '''
+                set -e
+                . "$VENV_DIR/bin/activate"
+                cd ansible
+
+                INV="inventories/${DEPLOY_ENV}/hosts.ini"
+                VARS="group_vars/${DEPLOY_ENV}.yml"
+
+                if [ ! -f "$INV" ]; then
+                  echo "ERROR: Missing inventory: $INV"
+                  exit 2
+                fi
+                if [ ! -f "$VARS" ]; then
+                  echo "ERROR: Missing vars file: $VARS"
+                  exit 2
+                fi
+
+                EXTRA_VARS=""
+                if [ "${FORCE_PRIME}" = "true" ]; then
+                  EXTRA_VARS="$EXTRA_VARS -e force_prime=true"
+                fi
+                if [ "${DEBUG}" = "true" ]; then
+                  EXTRA_VARS="$EXTRA_VARS -e debug=true"
+                fi
+
+                mkdir -p "${ARTIFACTS_DIR}"
+                echo "Artifacts will be written to: ${ARTIFACTS_DIR}"
+
+                ansible-playbook -i "$INV" playbooks/deploy.yml \
+                  -e "@${VARS}" \
+                  -e "env=${DEPLOY_ENV}" \
+                  -e "artifacts_dir=${ARTIFACTS_DIR}" \
+                  $EXTRA_VARS
+              '''
+            }
+          }
         }
       }
     }
 
-    stage('Stage 11- PR Safe Mode Notice') {
+    stage('Stage 12- PR Safe Mode Notice') {
       when {
         expression { return env.SAFE_MODE == 'true' }
       }
