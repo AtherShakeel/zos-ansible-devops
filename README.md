@@ -47,30 +47,39 @@ COBOL / JCL / VSAM
 
 ZOAU / SSH-based automation
 
-📁 Repository Structure
+## 📁 Repository Structure
 
+```text
 zos-ansible-devops/
-  ansible/
-    inventories/
-      dev/hosts.ini
-      int/hosts.ini
-      prod/hosts.ini
-    group_vars/
-      dev.yml
-      int.yml
-      prod.yml
-    playbooks/deploy.yml
-    roles/
-      datasets/
-      deploy_sources/
-      spool_artifacts/
-    requirements.yml
-  ci/
-    Dockerfile
-    run_docker.sh
-  artifacts/build-<BUILD_NUMBER>/
-  Jenkinsfile
-  README.md
+├── ansible/
+│   ├── inventories/
+│   │   ├── dev/
+│   │   │   └── hosts.ini
+│   │   ├── int/
+│   │   │   └── hosts.ini
+│   │   └── prod/
+│   │       └── hosts.ini
+│   ├── group_vars/
+│   │   ├── dev.yml
+│   │   ├── int.yml
+│   │   └── prod.yml
+│   ├── playbooks/
+│   │   └── deploy.yml
+│   ├── roles/
+│   │   ├── datasets/
+│   │   ├── deploy_sources/
+│   │   └── spool_artifacts/
+│   └── requirements.yml
+├── ci/
+│   ├── Dockerfile
+│   └── run_docker.sh
+├── artifacts/
+│   └── build-<BUILD_NUMBER>/
+│       ├── rendered_jcl/
+│       └── *.spool.txt
+├── Jenkinsfile
+└── README.md
+
 
 
 🔀 Branch → Environment Mapping
