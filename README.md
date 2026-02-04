@@ -175,8 +175,6 @@ Artifacts are archived in Jenkins and traceable per build.
 
 This project intentionally addresses non-trivial enterprise issues:
 
-Root-owned files from Docker runs
-
 Jenkins workspace permission conflicts
 
 z/OS spool retrieval timing & retries
