@@ -30,7 +30,6 @@ This project demonstrates how traditional z/OS workloads (COBOL, JCL, VSAM) can 
 
 🛡️ Enterprise guardrails (approvals, branch protections)
 
-This is not a demo script — it mirrors how real enterprises modernize mainframe delivery pipelines.
 
 🧱 Tech Stack
 
@@ -49,22 +48,38 @@ COBOL / JCL / VSAM
 ZOAU / SSH-based automation
 
 📁 Repository Structure
-.
+
+zos-ansible-devops/
 ├── ansible/
-│   ├── playbooks/        # deploy.yml (end-to-end orchestration)
-│   ├── roles/            # datasets, deploy_sources, compile, run, spool_artifacts
-│   ├── inventories/      # dev / int / prod
-│   ├── group_vars/       # env-specific variables
-│   └── requirements.yml # z/OS Ansible collections
-│
+│   ├── inventories/
+│   │   ├── dev/
+│   │   │   └── hosts.ini
+│   │   ├── int/
+│   │   │   └── hosts.ini
+│   │   └── prod/
+│   │       └── hosts.ini
+│   ├── group_vars/
+│   │   ├── dev.yml
+│   │   ├── int.yml
+│   │   └── prod.yml
+│   ├── playbooks/
+│   │   └── deploy.yml
+│   ├── roles/
+│   │   ├── datasets/
+│   │   ├── deploy_sources/
+│   │   └── spool_artifacts/
+│   └── requirements.yml
 ├── ci/
-│   ├── Dockerfile        # zos-ansible-ci image
-│   ├── run_docker.sh     # Run deployment via Docker
-│
+│   ├── Dockerfile
+│   └── run_docker.sh
 ├── artifacts/
-│   └── build-<n>/        # Jenkins build outputs (spool files, JCL)
-│
-└── Jenkinsfile           # Full multibranch CI/CD pipeline
+│   └── build-<BUILD_NUMBER>/
+│       ├── rendered_jcl/
+│       └── *.spool.txt
+├── Jenkinsfile
+├── README.md
+└── .gitignore
+
 
 🔀 Branch → Environment Mapping
 Branch	      Environment
