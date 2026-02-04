@@ -37,7 +37,7 @@ pipeline {
 
   stages {
 
-    stage('Stage 1- Init (Branch â†’ Env)') {
+    stage('Stage 1- Init (Branch Ã¢â€ â€™ Env)') {
       steps {
         script {
           def branch = (env.BRANCH_NAME ?: "unknown").trim()
@@ -85,7 +85,7 @@ pipeline {
       steps {
         echo """
         PR build detected (CHANGE_ID=${env.CHANGE_ID}).
-        Running checks only â€” deployment is blocked by design.
+        Running checks only Ã¢â‚¬â€� deployment is blocked by design.
         Target branch: ${env.CHANGE_TARGET}
         Source branch: ${env.CHANGE_BRANCH}
         """
@@ -187,7 +187,7 @@ pipeline {
 
           if [ "${USE_DOCKER}" = "true" ]; then
             docker run --rm \
-              -v "$PWD:/workspace" -w /workspace \
+              -v "$WORKSPACE:/workspace" -w /workspace \
               zos-ansible-ci \
               bash -lc "
                 set -e
@@ -255,7 +255,7 @@ pipeline {
               echo "Artifacts (container) dir: ${CONTAINER_ART_DIR}"
 
               docker run --rm \
-                -v "$PWD:/workspace" -w /workspace \
+                -v "$WORKSPACE:/workspace" -w /workspace \
                 -e SSH_AUTH_SOCK="$SSH_AUTH_SOCK" \
                 -v "$SSH_AUTH_SOCK:$SSH_AUTH_SOCK" \
                 zos-ansible-ci \
