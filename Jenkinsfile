@@ -4,7 +4,7 @@ pipeline {
   tools {
     git 'Default'
   }
-
+  
   options {
     skipDefaultCheckout(true)
     buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
@@ -37,7 +37,7 @@ pipeline {
 
   stages {
 
-    stage('Stage 1- Init (Branch → Env)') {
+    stage('Stage 1- Init (Branch â†’ Env)') {
       steps {
         script {
           def branch = (env.BRANCH_NAME ?: "unknown").trim()
@@ -85,7 +85,7 @@ pipeline {
       steps {
         echo """
         PR build detected (CHANGE_ID=${env.CHANGE_ID}).
-        Running checks only — deployment is blocked by design.
+        Running checks only â€” deployment is blocked by design.
         Target branch: ${env.CHANGE_TARGET}
         Source branch: ${env.CHANGE_BRANCH}
         """
@@ -94,16 +94,8 @@ pipeline {
 
     stage('Stage 3- Clean Workspace') {
       steps {
-        // Fix only artifacts perms (fast), then wipe workspace
-        sh '''
-          set -e
-          echo "Pre-clean: fixing permissions in artifacts only (fast)..."
-          if [ -d "$WORKSPACE/artifacts" ]; then
-            sudo chown -R $(id -u):$(id -g) "$WORKSPACE/artifacts" 2>/dev/null || true
-            sudo chmod -R u+rwX "$WORKSPACE/artifacts" 2>/dev/null || true
-          fi
-        '''
-        deleteDir()
+          sh 'rm -rf "$WORKSPACE/artifacts" || true'
+          deleteDir()
       }
     }
 
@@ -187,9 +179,10 @@ pipeline {
         sh '''
           set -e
 
-          INV="ansible/inventories/${DEPLOY_ENV}/hosts.ini"
-          VARS="ansible/group_vars/${DEPLOY_ENV}.yml"
-
+          cd ansible
+          INV="inventories/${DEPLOY_ENV}/hosts.ini"
+          VARS="group_vars/${DEPLOY_ENV}.yml"
+          
           echo "Syntax-check using inventory: $INV and vars: $VARS"
 
           if [ "${USE_DOCKER}" = "true" ]; then
@@ -198,13 +191,14 @@ pipeline {
               zos-ansible-ci \
               bash -lc "
                 set -e
-                ansible-playbook --syntax-check -i '$INV' ansible/playbooks/deploy.yml -e '@$VARS'
-                ansible-lint -q ansible/playbooks/deploy.yml || true
+                cd ansible
+                ansible-playbook --syntax-check -i '$INV' playbooks/deploy.yml -e '@$VARS'
+                ansible-lint -q playbooks/deploy.yml || true
               "
           else
             . "$VENV_DIR/bin/activate"
-            ansible-playbook --syntax-check -i "$INV" ansible/playbooks/deploy.yml -e "@$VARS"
-            ansible-lint -q ansible/playbooks/deploy.yml || true
+            ansible-playbook --syntax-check -i "$INV" playbooks/deploy.yml -e "@$VARS"
+            ansible-lint -q playbooks/deploy.yml || true
           fi
         '''
       }
@@ -227,10 +221,11 @@ pipeline {
         sshagent(credentials: [env.ZOS_SSH_CRED]) {
           sh '''
             set -e
-
-            INV="ansible/inventories/${DEPLOY_ENV}/hosts.ini"
-            VARS="ansible/group_vars/${DEPLOY_ENV}.yml"
-
+            
+            cd ansible
+            INV="inventories/${DEPLOY_ENV}/hosts.ini"
+            VARS="group_vars/${DEPLOY_ENV}.yml"
+            
             if [ ! -f "$INV" ]; then
               echo "ERROR: Missing inventory: $INV"
               exit 2
@@ -266,7 +261,8 @@ pipeline {
                 zos-ansible-ci \
                 bash -lc "
                   set -e
-                  ansible-playbook -i '$INV' ansible/playbooks/deploy.yml \
+                  cd ansible
+                  ansible-playbook -i '$INV' playbooks/deploy.yml \
                     -e '@$VARS' \
                     -e 'env=${DEPLOY_ENV}' \
                     -e 'artifacts_dir=${CONTAINER_ART_DIR}' \
@@ -275,8 +271,8 @@ pipeline {
             else
               echo "USE_DOCKER=false -> running using host venv"
               . "$VENV_DIR/bin/activate"
-
-              ansible-playbook -i "$INV" ansible/playbooks/deploy.yml \
+              
+              ansible-playbook -i "$INV" playbooks/deploy.yml \
                 -e "@${VARS}" \
                 -e "env=${DEPLOY_ENV}" \
                 -e "artifacts_dir=${ARTIFACTS_DIR}" \
