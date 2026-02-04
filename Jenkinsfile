@@ -110,9 +110,9 @@ pipeline {
         sh '''
           set -e
           echo "Pre-clean: fixing permissions (in case previous Docker run created root-owned files)..."
-          # Best effort: don't fail the build if chown fails (some agents may not allow sudo)
-          sudo chown -R $(id -u):$(id -g) "$WORKSPACE" 2>/dev/null || true
-          sudo chmod -R u+rwX "$WORKSPACE" 2>/dev/null || true
+          if [ -d "$WORKSPACE/artifacts" ]; then
+            sudo rm -rf "$WORKSPACE/artifacts" 2>/dev/null || rm -rf "$WORKSPACE/artifacts" || true
+          fi
         '''
         deleteDir()
       }
