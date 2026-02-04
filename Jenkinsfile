@@ -37,7 +37,7 @@ pipeline {
 
   stages {
 
-    stage('Stage 1- Init (Branch Ã¢â€ â€™ Env)') {
+    stage('Stage 1- Init (Branch -> Env)') {
       steps {
         script {
           def branch = (env.BRANCH_NAME ?: "unknown").trim()
