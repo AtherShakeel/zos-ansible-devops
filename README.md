@@ -1,4 +1,4 @@
-# zos-ansible-devops  
+🚀 z/OS Ansible DevOps CI/CD Pipeline 
 
 ![COBOL](https://img.shields.io/badge/Language-COBOL-blue)
 ![JCL](https://img.shields.io/badge/Language-JCL-blue)
@@ -6,287 +6,190 @@
 ![Jenkins](https://img.shields.io/badge/CI-Jenkins-orange)
 ![zOS](https://img.shields.io/badge/Platform-IBM%20z%2FOS-green)
 ![VSAM](https://img.shields.io/badge/VSAM-Validation-purple)
-![Repo size](https://img.shields.io/github/repo-size/AtherShakeel/ZBridge-Orchestrator)
-![Contributors](https://img.shields.io/github/contributors/AtherShakeel/ZBridge-Orchestrator)
-![Issues](https://img.shields.io/github/issues/AtherShakeel/ZBridge-Orchestrator)
-![Last commit](https://img.shields.io/github/last-commit/AtherShakeel/ZBridge-Orchestrator)
-![Stars](https://img.shields.io/github/stars/AtherShakeel/ZBridge-Orchestrator?style=social)
-![Forks](https://img.shields.io/github/forks/AtherShakeel/ZBridge-Orchestrator?style=social)
+![Contributors](https://img.shields.io/github/contributors/AtherShakeel/zos-ansible-devops)
+![Last commit](https://img.shields.io/github/last-commit/AtherShakeel/zos-ansible-devops)
 
 
-### Enterprise-style z/OS CI/CD using Ansible and ZOAU
+Enterprise-grade Mainframe DevOps & Modernization pipeline built on IBM z/OS, Ansible, Jenkins Multibranch, and Docker (optional).
 
----
+This project demonstrates how traditional z/OS workloads (COBOL, JCL, VSAM) can be integrated into a modern CI/CD workflow with environment isolation, automation, and reproducibility.
 
-## 1. What is this project?
+🎯 What This Project Demonstrates
 
-**zos-ansible-devops** is an end-to-end DevOps automation project for IBM z/OS using **Ansible** and the **ibm.ibm_zos_core** collection over **SSH + ZOAU**.
+🧠 Mainframe expertise (z/OS datasets, VSAM, JES spool handling)
 
-It automates the complete mainframe application lifecycle:
+🔁 End-to-end CI/CD across dev → int → prod
 
-- Create and manage z/OS datasets (PDS, PDSE, PS, VSAM)
-- Upload COBOL programs, copybooks, subprograms, and input data
-- Submit a controlled JCL job chain (compile, link, run)
-- Capture JES spool output for every job as build artifacts
-- Fail the pipeline when jobs return unacceptable return codes
-- Integrate cleanly with Jenkins for CI/CD
+🔀 Branch-based environment promotion
 
-This project replaces an earlier **Python + Zowe CLI** pipeline with a **modern, Ansible-based** approach focused on:
+🧪 PR safe-mode (no accidental deployments)
 
-- idempotency  
-- structured job results  
-- reproducible environments  
-- clean CI logs with full diagnostics via artifacts  
+📦 Artifact capture (JESMSGLG, JESJCL, job output)
 
----
+🐳 Dockerized Ansible execution (optional, reproducible)
 
-## 2. Why this project exists
+🛡️ Enterprise guardrails (approvals, branch protections)
 
-- To modernize mainframe workflows using DevOps practices  
-- To replace Zowe CLI scripting with native Ansible automation  
-- To learn and demonstrate:
-  - inventories & group_vars  
-  - reusable roles  
-  - SSH + ZOAU integration  
-  - Jenkins-based CI/CD  
+This is not a demo script — it mirrors how real enterprises modernize mainframe delivery pipelines.
 
----
+🧱 Tech Stack
 
-## 3. High-level workflow
+IBM z/OS
 
-1. Controller (WSL / Jenkins) runs Ansible  
-2. Ansible connects to **z/OS via SSH**  
-3. ZOAU utilities perform:
-   - dataset allocation  
-   - JCL submission  
-   - JES spool retrieval  
-4. Spool is saved locally under `artifacts/`  
-5. Pipeline fails **after** artifacts are preserved  
+Ansible + ibm.ibm_zos_core
 
----
+Jenkins Multibranch Pipelines
 
-## 4. Environment & prerequisites
+Docker (WSL2 backend, optional)
 
-### Controller
-- Linux / WSL Ubuntu  
-- Python 3.9+  
-- Ansible (via pip)  
-- SSH key access to z/OS  
-- Internet access for Ansible Galaxy  
+GitHub
 
-### Target system (z/OS)
-- IBM z/OS (IBM Z Xplore)  
-- SSH enabled  
-- ZOAU installed  
-- USS Python:
+COBOL / JCL / VSAM
 
-/usr/lpp/IBM/cyp/v3r9/pyz/bin/python3
+ZOAU / SSH-based automation
 
-yaml
-Copy code
+📁 Repository Structure
+.
+├── ansible/
+│   ├── playbooks/        # deploy.yml (end-to-end orchestration)
+│   ├── roles/            # datasets, deploy_sources, compile, run, spool_artifacts
+│   ├── inventories/      # dev / int / prod
+│   ├── group_vars/       # env-specific variables
+│   └── requirements.yml # z/OS Ansible collections
+│
+├── ci/
+│   ├── Dockerfile        # zos-ansible-ci image
+│   ├── run_docker.sh     # Run deployment via Docker
+│
+├── artifacts/
+│   └── build-<n>/        # Jenkins build outputs (spool files, JCL)
+│
+└── Jenkinsfile           # Full multibranch CI/CD pipeline
 
-### Critical: ZOAU environment
+🔀 Branch → Environment Mapping
+Branch	      Environment
+dev	          dev
+int	          int
+main/master	  prod
+PR branches	  SAFE MODE (no deploy)
 
-`ansible/group_vars/zos_ssh.yml` exports:
+🧪 SAFE MODE (PR Builds)
 
-- ZOAU_HOME  
-- PATH  
-- LIBPATH  
-- PYTHONPATH  
+Pull Requests never deploy to z/OS.
 
-Injected via:
+PR builds:
 
-```yaml
-environment: "{{ zoau_env }}"
+Run syntax checks
 
+Run Ansible lint
 
-5. Dataset model (source of truth)
-Defined in:
-ansible/group_vars/all.yml
+Validate inventories & vars
 
-Purpose	Type	Attributes
-SOURCE	PDS	FB, LRECL=80
-SUBSRC	PDS	FB, LRECL=80
-COPYLIB	PDS	FB, LRECL=80
-OBJLIB	PDS	RECFM=U
-LOADLIB	PDSE	RECFM=U
-TRANS	PS	FB, LRECL=80
-MASTER	VSAM KSDS	Keylen=10
+Block deployment by design
 
-⚠ If a dataset was created with wrong attributes,
-state: present will NOT correct it — it must be recreated.
+This mirrors enterprise change-control policies.
 
+🐳 Docker (Optional Execution Mode)
 
-6. VSAM priming & force_prime
-VSAM is primed using setup_env.jcl.
+The pipeline supports two execution models:
 
-Default:
+🔹 Option 1: Native (No Docker)
 
-Prime only when newly created
+Python virtualenv
 
-Override:
+Ansible installed on Jenkins agent
 
-bash
-Copy code
-ansible-playbook -i hosts.ini playbooks/deploy.yml -e force_prime=true
-Meaning:
+🔹 Option 2: Dockerized (Recommended)
 
-“Reset VSAM contents without redefining it”
+Prebuilt zos-ansible-ci image
 
+Fully reproducible Ansible runtime
 
-7. Spool & artifacts
-Captured for every job:
+No Python/Ansible required on host
+
+Docker is optional — both modes coexist cleanly.
+
+▶️ Run Locally (WSL / Linux)
+Without Docker
+cd ansible
+ansible-playbook \
+  -i inventories/dev/hosts.ini \
+  playbooks/deploy.yml \
+  -e "@group_vars/dev.yml" \
+  -e "env=dev"
+
+With Docker
+ci/run_docker.sh dev
+
+🤖 Jenkins CI/CD Highlights
+
+Multibranch pipeline (auto-discovery)
+
+Environment inference from branch name
+
+PROD approval gate
+
+Optional Docker-based execution (USE_DOCKER=true)
+
+Build artifacts archived per build
+
+Artifacts example:
+
+artifacts/build-27/
+├── COMPDYN_JOB03276_compile_calc.spool.txt
+├── COMPMAIN_JOB03278_compile_main.spool.txt
+├── PRNTVASM_JOB03281_util_print_vsam.spool.txt
+└── rendered_jcl/
+
+📦 Artifact Management
 
 JESMSGLG
 
 JESJCL
 
-JESYSMSG
+Job output spools
 
-Extra:
+Rendered JCL
 
-PRNTVASM → SYSPRINT
+Normalized text for readability
 
-RUNORCH → SYSOUT
+Artifacts are archived in Jenkins and traceable per build.
 
-Artifacts saved to:
+⚠️ Real-World Problems Solved
 
-Copy code
-artifacts/
-Spool is saved even when the pipeline fails.
+This project intentionally addresses non-trivial enterprise issues:
 
+Root-owned files from Docker runs
 
-8. Console output philosophy
-Job submits use no_log: true
+Jenkins workspace permission conflicts
 
-Jenkins logs stay clean
+z/OS spool retrieval timing & retries
 
-Full details live in artifacts
+Environment variable scoping
 
-Debug mode:
+Inventory & group_vars resolution
 
-bash
-Copy code
-ansible-playbook -i hosts.ini playbooks/deploy.yml -e debug=true
+PR vs non-PR deployment safety
 
+These are the actual problems teams face — and they’re handled here.
 
-9. ACTUAL Project Structure
-powershell
-Copy code
-zos-ansible-devops/
-├── ansible/
-│   ├── ansible.cfg
-│   ├── hosts.ini
-│   ├── requirements.yml
-│   ├── group_vars/
-│   │   ├── all.yml
-│   │   └── zos_ssh.yml
-│   ├── playbooks/
-│   │   ├── deploy.yml             # MAIN orchestrator
-│   │   ├── deploy_test.yml        # experimental
-│   │   └── labs/                  # experimental tests
-│   │   └── tasks/                 # experimental tasks
-│   └── roles/
-│       ├── datasets/
-│       ├── deploy_sources/
-│       ├── run_jobs/
-│       └── spool_artifacts/
-│
-├── cobol/
-├── copy/
-├── subprogs/
-├── jcl/
-├── data/
-│   └── transactions.txt           # Input file to be read in main cobol pgm and finally loaded in VSAM as per the business logic
-│
-├── zapp.yaml                      # experimental / not used
-├── 1.1.0                          # UNKNOWN – gitignored
-│
-├── artifacts/                     # GENERATED – gitignored
-├── Jenkinsfile
-├── .gitignore
-└── README.md
+🧭 Why This Project Exists
 
-Status of folders
-CORE (used by Ansible pipeline)
+Mainframe modernization is not about replacing COBOL.
 
-ansible/
+It’s about:
 
-cobol/ copy/ subprogs/ jcl/ data/
+Bringing DevOps discipline to z/OS
 
-Jenkinsfile
+Reducing deployment risk
 
-EXPERIMENTAL / LEGACY
+Improving traceability
 
-playbooks/labs/ – test plays
+Enabling faster, safer change delivery
 
-deploy_test.yml – experiments
+This repo shows how that looks in practice.
 
-zapp.yaml – not used
+👤 Author
 
-
-10. Dependencies
-ansible/requirements.yml
-
-yaml
-Copy code
-collections:
-  - name: ibm.ibm_zos_core
-Install:
-
-bash
-Copy code
-cd ansible
-ansible-galaxy collection install -r requirements.yml
-
-
-11. Quick Start (Run locally)
-bash
-Copy code
-cd ansible
-ansible-galaxy collection install -r requirements.yml
-ansible-playbook -i hosts.ini playbooks/deploy.yml
-
-Force VSAM prime:
-ansible-playbook -i hosts.ini playbooks/deploy.yml -e force_prime=true
-Debug mode:
-ansible-playbook -i hosts.ini playbooks/deploy.yml -e debug=true
-
-
-12. Jenkins
-Jenkins performs:
-
-Checkout GitHub
-
-Create Python venv
-
-Install Ansible + collections
-
-Run playbook
-
-Archive artifacts/**
-
-Pipeline defined in:
-
-nginx
-Copy code
-Jenkinsfile
-
-
-13. Design principles
-Idempotent
-
-Artifacts-first
-
-Clean logs
-
-Single source of truth
-
-CI/CD ready
-
-
-14. Status
-✅ End-to-end working
-✅ Roles implemented
-✅ Spool capture reliable
-✅ Jenkins-ready
+Ather Shakeel
+Mainframe Engineer | z/OS DevOps | CI/CD Modernization
