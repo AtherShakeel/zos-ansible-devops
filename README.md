@@ -9,11 +9,16 @@
 ![Contributors](https://img.shields.io/github/contributors/AtherShakeel/zos-ansible-devops)
 ![Last commit](https://img.shields.io/github/last-commit/AtherShakeel/zos-ansible-devops)
 
-Educational / Portfolio Project Disclaimer
+## Educational / Portfolio Project Disclaimer
 
-This repository is an independently developed educational and portfolio project created in personal lab environments for learning and demonstration purposes.
+This repository is an independently developed educational and portfolio project created in **IBM Z Xplore personal sandbox environment** 
+for learning and demonstration purposes.
 
 It does not contain proprietary employer/client code, confidential business logic, production datasets, or internal enterprise assets. All workflows, datasets, pipelines, naming conventions, and configurations used in this repository are synthetic examples designed to simulate real-world z/OS modernization and DevOps scenarios.
+
+**Verified by:** IBM Z Xplorer Advanced & Concepts 
+Certifications — credly.com/badges/9dba50ab-3c21-4ecf-82eb-0e27f2d39bf7  
+                 credly.com/badges/f462ed97-c509-4712-9ea7-268a33f011e0
 
 The objective of this project is to demonstrate hands-on understanding of mainframe automation, CI/CD concepts, Jenkins, Ansible, Zowe, COBOL deployment workflows, and modernization practices within a controlled personal environment.
 
